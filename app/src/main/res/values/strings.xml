@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">My_App_</string>
+    <string-array name="langue_array">
+        <item>English</item>
+        <item>French</item>
+        <item>Arabic</item>
+        <item>spnanish</item>
+    </string-array>
+</resources>
