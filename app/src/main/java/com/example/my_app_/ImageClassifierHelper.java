@@ -124,7 +124,7 @@ public class ImageClassifierHelper {
                 baseOptionsBuilder.useNnapi();
         }
 
-        String modelName="model4_metadata.tflite";
+        String modelName="model300_mobilnetv2.tflite";
         /*switch (currentModel) {
             case MODEL_MOBILENETV1:
                 modelName = "mobilenetv1.tflite";

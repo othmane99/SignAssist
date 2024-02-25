@@ -139,8 +139,7 @@ public class MainActivity extends AppCompatActivity implements ImageClassifierHe
         CameraSelector.Builder cameraSelectorBuilder = new CameraSelector.Builder();
         CameraSelector cameraSelector = cameraSelectorBuilder.requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
 
-        // Preview. Only using the 4:3 ratio because this is the closest to
-        // our model
+        // Preview. Only using the 4:3 ratio because this is the closest to our model
         Preview preview = new Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3).setTargetRotation(previewView.getDisplay().getRotation()).build();
 
         // ImageAnalysis. Using RGBA 8888 to match how our models work
