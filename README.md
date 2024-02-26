@@ -6,3 +6,4 @@ https://drive.google.com/file/d/1MOp9GvWVNnYPhtn5n-lqvefwJUwEYr-_/view?usp=drive
 ![WhatsApp Image 2024-02-26 at 02 45 49_e3e272c0](https://github.com/othmane99/SignAssist/assets/46626852/54e0a52c-a169-4b56-a37d-7731c8b8a1c0)
 
 ## Video demo :
+https://drive.google.com/file/d/1QUODQVeEHD9h5ge6zgspF7IlH8SSYbUX/view?usp=sharing
