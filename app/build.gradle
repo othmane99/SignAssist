@@ -7,7 +7,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.my_app_"
-        minSdk 22
+        minSdk 21
         targetSdk 33
         versionCode 1
         versionName "1.0"
@@ -52,4 +52,7 @@ dependencies {
     // Import the GPU delegate plugin Library for GPU inference
     implementation 'org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.0'
     implementation 'org.tensorflow:tensorflow-lite-gpu:2.9.0'
+
+    ///for gps
+    implementation 'com.google.android.gms:play-services-location:17.0.0'
 }

@@ -1,5 +1,9 @@
 package com.example.my_app_;
 
+
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+
 import androidx.annotation.NonNull;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,25 +18,31 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Looper;
+import android.provider.Settings;
 import android.util.Size;
 import android.view.OrientationEventListener;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 
 import android.util.Log;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.camera.core.AspectRatio;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +50,13 @@ import java.util.concurrent.Executors;
 import org.tensorflow.lite.support.label.Category;
 import org.tensorflow.lite.task.vision.classifier.Classifications;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 
 public class MainActivity extends AppCompatActivity implements ImageClassifierHelper.ClassifierListener  {
     private ImageClassifierHelper imageClassifierHelper;
@@ -52,9 +69,17 @@ public class MainActivity extends AppCompatActivity implements ImageClassifierHe
     private final Object task =new Object();
     private ProcessCameraProvider cameraProvider;
     private ExecutorService cameraExecutor;
+    private FusedLocationProviderClient mFusedLocationClient;
+    int PERMISSION_ID = 44;
+    private Button translate,sos;
+    private Spinner spino_lang;
+    private String languagePair ;
+    private String sos_msg;
+    private String recognite_text="";
+
 
     private List<Category> categories = new ArrayList<>();
-    private int adapterSize = 0;
+
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -76,46 +101,64 @@ public class MainActivity extends AppCompatActivity implements ImageClassifierHe
         imageClassifierHelper=ImageClassifierHelper.create(getApplicationContext(),this);
         cameraExecutor = Executors.newSingleThreadExecutor();
         previewView = findViewById(R.id.preview);
-       //cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        textView = findViewById(R.id.textView);
+        spino_lang=findViewById(R.id.spino);
+        translate=findViewById(R.id.button);
+        sos=findViewById(R.id.button2);
 
-        /*cameraProviderFuture.addListener(new Runnable() {
+        textView = findViewById(R.id.textView);
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        spino_lang.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void run() {
-                try {
-                    ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                    bindImageAnalysis(cameraProvider);
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id)
+            {//the user desire language
+                 /*<item>English</item>
+                <item>French</item>
+                <item>Arabic</item>
+            <item>spnanish</item>*/
+                switch (position) {
+                    case 1:
+                        //languagePair ="eng";
+                        break;
+                    case 2:
+                        languagePair = "en-fr";
+                        break;
+                    case 3:
+                        languagePair ="en-ar";
+                        break;
+                    case 4:
+                        languagePair = "en-sp";
+                        break;
+                    default:
+                        //languagePair = "eng";
+                        }
+                            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                // no-op
             }
-        }, ContextCompat.getMainExecutor(this));*/
+        });
+        translate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                TranslatorBackgroundTask translatorBackgroundTask= new TranslatorBackgroundTask(getBaseContext());
+                AsyncTask<String, Void, String> translationResult = translatorBackgroundTask.execute(recognite_text,languagePair);
+                textView.setText(translationResult.toString());
+            }
+        });
+        sos.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getLastLocation();
+                Toast.makeText(getBaseContext(), sos_msg,Toast.LENGTH_LONG).show();
+                //todo sent sos_msg to a number using intent
+            }
+        });
         previewView.post(this::setUpCamera);
 
     }
 
-    private void bindImageAnalysis(@NonNull ProcessCameraProvider cameraProvider) {
-        ImageAnalysis imageAnalysis =
-                new ImageAnalysis.Builder().setTargetResolution(new Size(1280, 720))
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();
-        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), new ImageAnalysis.Analyzer() {
-            @Override
-            public void analyze(@NonNull ImageProxy image) {
-                image.close();
-            }
-        });
-        OrientationEventListener orientationEventListener = new OrientationEventListener(this) {
-            @Override
-            public void onOrientationChanged(int orientation) {
-                textView.setText(Integer.toString(orientation));
-            }
-        };
-        orientationEventListener.enable();
-        Preview preview = new Preview.Builder().build();
-        CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
-        cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector,imageAnalysis, preview);
-    }
 
     private void setUpCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
@@ -139,7 +182,8 @@ public class MainActivity extends AppCompatActivity implements ImageClassifierHe
         CameraSelector.Builder cameraSelectorBuilder = new CameraSelector.Builder();
         CameraSelector cameraSelector = cameraSelectorBuilder.requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
 
-        // Preview. Only using the 4:3 ratio because this is the closest to our model
+        // Preview. Only using the 4:3 ratio because this is the closest to
+        // our model
         Preview preview = new Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3).setTargetRotation(previewView.getDisplay().getRotation()).build();
 
         // ImageAnalysis. Using RGBA 8888 to match how our models work
@@ -224,45 +268,134 @@ public class MainActivity extends AppCompatActivity implements ImageClassifierHe
     public void onResults(List<Classifications> results, long inferenceTime) {
 
         runOnUiThread(() -> {
-           /*float treshlod=results.get(0).getCategories().get(0).getScore();//set treshlod with the first value of the list classification
-            int index=0;
-            for(Category c:results.get(0).getCategories()){
-            if(c.getScore()>treshlod){
-                treshlod=c.getScore();
-                index=c.getIndex();
-            }
-            }
-            String output=results.get(0).getCategories().get(0).getLabel().toString();
-
-            */
-            //updateResults(results.get(0).getCategories());
-            // after the sorting using the update methods ,now we can take the first element
-            //textView.setText(categories.get(0).getLabel()+" with "+categories.get(0).getScore()+" %");
             if(!results.get(0).getCategories().isEmpty()){
-                String label=results.get(0).getCategories().get(0).getLabel();
-                float score=results.get(0).getCategories().get(0).getScore();
-                textView.setText(label+" "+score+" %");
+                float treshlod=results.get(0).getCategories().get(0).getScore();
+                int index=0;
+                for(Category c:results.get(0).getCategories()){
+                    if(c.getScore()>treshlod){
+                        treshlod=c.getScore();
+                        index=c.getIndex();
+                    }
+                }
+                String label=results.get(0).getCategories().get(index).getLabel();
+                float score=results.get(0).getCategories().get(index).getScore();
+                //Log.d("Debug", "onResults: "+results.get(0).getCategories() );
+                //textView.setText(label+" "+score+" %");
+                   if(label.equals("nothing"))label="";
+                    if(label.equals("space"))label=" ";
+                if(label.equals("del"))recognite_text.substring(0, recognite_text.length() - 1);
+
+                if(score>0.8)recognite_text=recognite_text+label;
+                textView.setText(recognite_text);
             }
-            else{textView.setText(" ");
+            else{
+                //textView.setText(" ");
             }
-            //textView.setText(results.get(0).getCategories().get(0).);
+
         });
     }
-    @SuppressLint("NotifyDataSetChanged")
-    public void updateResults(List<Category> categories) {
-        List<Category> sortedCategories = new ArrayList<>(categories);
-        Collections.sort(sortedCategories, new Comparator<Category>() {
-            @Override
-            public int compare(Category category1, Category category2) {
-                return category1.getIndex() - category2.getIndex();
+    @SuppressLint("MissingPermission")
+    private void getLastLocation() {
+        // check if permissions are given
+        if (checkPermissions()) {
+
+            // check if location is enabled
+            if (isLocationEnabled()) {
+
+                mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Location> task) {
+                        Location location = task.getResult();
+                        if (location == null) {
+                            requestNewLocationData();
+                        } else {
+
+                            sos_msg="j'ai besoin d'aide,je suis à Latitude "+location.getLatitude()+" Longitude "+location.getLongitude();
+
+
+                        }
+                    }
+                });
+            } else {
+                Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_LONG).show();
+                Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                startActivity(intent);
             }
-        });
-        this.categories = new ArrayList<>(Collections.nCopies(adapterSize, null));
-        int min = Math.min(sortedCategories.size(), adapterSize);
-        for (int i = 0; i < min; i++) {
-            this.categories.set(i, sortedCategories.get(i));
+        } else {
+            // if permissions aren't available,
+            // request for permissions
+            requestPermissions();
         }
     }
+
+    @SuppressLint("MissingPermission")
+    private void requestNewLocationData() {
+
+        // Initializing LocationRequest
+        // object with appropriate methods
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(5);
+        mLocationRequest.setFastestInterval(0);
+        mLocationRequest.setNumUpdates(1);
+
+        // setting LocationRequest
+        // on FusedLocationClient
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.myLooper());
+    }
+
+    private LocationCallback mLocationCallback = new LocationCallback() {
+
+        @Override
+        public void onLocationResult(LocationResult locationResult) {
+            Location mLastLocation = locationResult.getLastLocation();
+            //latitudeTextView.setText("Latitude: " + mLastLocation.getLatitude() + "");
+            //longitTextView.setText("Longitude: " + mLastLocation.getLongitude() + "");
+        }
+    };
+
+    // method to check for permissions
+    private boolean checkPermissions() {
+        return ActivityCompat.checkSelfPermission(this, ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // method to request for permissions
+    private void requestPermissions() {
+        ActivityCompat.requestPermissions(this, new String[]{
+                ACCESS_COARSE_LOCATION,
+                ACCESS_FINE_LOCATION}, PERMISSION_ID);
+    }
+
+    // method to check
+    // if location is enabled
+    private boolean isLocationEnabled() {
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    }
+
+    // If everything is alright then
+    @Override
+    public void
+    onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == PERMISSION_ID) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getLastLocation();
+            }
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (checkPermissions()) {
+            getLastLocation();
+        }
+    }
+
 
 
 }
